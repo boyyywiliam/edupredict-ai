@@ -306,8 +306,13 @@ with tab_batch:
 
             if st.button("Jalankan Prediksi Seluruh Baris", type="primary"):
                 with st.spinner("Memproses prediksi..."):
-                    df_csv["Prediksi"] = pipeline.predict(df_csv[cols_req])
-                    probs = pipeline.predict_proba(df_csv[cols_req])
+                    # Normalisasi nilai skala 0-100 ke skala model 0-20 secara transparan
+                    df_model = df_csv[cols_req].copy()
+                    df_model["nilai_tugas"] = df_model["nilai_tugas"].apply(lambda x: round(x / 5) if x > 20 else x)
+                    df_model["nilai_uts"] = df_model["nilai_uts"].apply(lambda x: round(x / 5) if x > 20 else x)
+
+                    df_csv["Prediksi"] = pipeline.predict(df_model)
+                    probs = pipeline.predict_proba(df_model)
                     cls_list = list(pipeline.classes_)
                     idx_l = cls_list.index("Lulus")
                     df_csv["Probabilitas Lulus (%)"] = (probs[:, idx_l] * 100).round(1)
@@ -368,76 +373,89 @@ with tab_eval:
     m = meta["metrik"]
     lm = llm_meta
 
-    st.subheader("Evaluasi Performa Model pada Data Uji")
+    st.subheader("Evaluasi Kinerja Model (Data Uji: 79 Siswa)")
     st.write(
-        f"Evaluasi kuantitatif dilakukan pada {m['n_test']} sampel data uji yang sama persis "
-        "antara Model Library (Random Forest) dan AI Model Service (Groq LLM)."
+        f"Evaluasi empiris dilakukan menggunakan {m['n_test']} sampel data uji yang sama persis "
+        "antara Model Library (Random Forest) dan Cloud AI Model Service (Groq LLM)."
     )
 
-    # Tabel ringkasan metrik
+    # 1. Ringkasan Metrik Kunci (KPI Cards)
+    kpi1, kpi2, kpi3, kpi4 = st.columns(4)
+    kpi1.metric("Akurasi Random Forest", f"{m['accuracy'] * 100:.2f}%")
+    kpi2.metric("F1-Score Random Forest", f"{m['f1_macro']:.4f}")
+    kpi3.metric("Akurasi Groq LLM", f"{lm.get('accuracy', 0) * 100:.2f}%")
+    kpi4.metric("F1-Score Groq LLM", f"{lm.get('f1_macro', 0):.4f}")
+
+    st.markdown("---")
+
+    # 2. Visualisasi Grafik Komparasi
+    st.subheader("Visualisasi Hasil Evaluasi")
+
+    vis_dir = os.path.join(os.path.dirname(__file__), "visualisasi")
+    path_perf = os.path.join(vis_dir, "perbandingan_performa_model.png")
+    path_cm = os.path.join(vis_dir, "confusion_matrix_perbandingan.png")
+    path_fi = os.path.join(vis_dir, "feature_importance_rf.png")
+
+    col_g1, col_g2 = st.columns(2)
+    with col_g1:
+        if os.path.exists(path_perf):
+            st.image(path_perf, caption="Gambar 1. Perbandingan Akurasi & F1-Score Model", use_container_width=True)
+    with col_g2:
+        if os.path.exists(path_cm):
+            st.image(path_cm, caption="Gambar 2. Heatmap Confusion Matrix (79 Data Uji)", use_container_width=True)
+
+    if os.path.exists(path_fi):
+        st.image(path_fi, caption="Gambar 3. Analisis Faktor yang Paling Mempengaruhi Kelulusan", use_container_width=True)
+
+    st.markdown("---")
+
+    # 3. Tabel Perbandingan Operasional & Teknis
+    st.subheader("Tabel Perbandingan Teknis & Karakteristik Model")
+
     df_metrik = pd.DataFrame(
         {
-            "Parameter Evaluasi": [
-                "Akurasi Keseluruhan",
+            "Aspek Komparasi": [
+                "Akurasi pada Data Uji",
                 "F1-Score (Macro Average)",
-                "Jumlah Data Uji (Test Set)",
-                "Jumlah Data Latih (Training Set)",
-                "Waktu Inferensi Rata-rata",
-                "Kebutuhan Koneksi Internet",
-                "Metode Inferensi",
+                "Waktu Inferensi",
+                "Kebutuhan Jaringan",
+                "Biaya Operasional",
+                "Pendekatan Pemodelan",
+                "Karakteristik Output",
             ],
             "Model Library (Random Forest)": [
                 f"{m['accuracy'] * 100:.2f}%",
                 f"{m['f1_macro']:.4f}",
-                f"{m['n_test']} sampel",
-                f"{m['n_train']} sampel",
-                "< 5 ms per request",
-                "Tidak (Offline)",
-                "Supervised Learning",
+                "< 5 milidetik (sangat cepat)",
+                "Offline (lokal sepenuhnya)",
+                "Gratis (komputasi lokal)",
+                "Supervised Learning (316 data latih)",
+                "Klasifikasi biner & probabilitas numerik",
             ],
             "AI Model Service (Groq API)": [
                 f"{lm.get('accuracy', 0) * 100:.2f}%",
                 f"{lm.get('f1_macro', 0):.4f}",
-                f"{lm.get('n_test', m['n_test'])} sampel",
-                "—",
-                "~400 - 800 ms per request",
-                "Ya (Cloud API)",
-                "Few-Shot Prompting",
+                "~400 - 800 milidetik (tergantung jaringan)",
+                "Online (membutuhkan koneksi internet)",
+                "Menggunakan kuota API cloud",
+                "Few-Shot Prompt Engineering",
+                "Klasifikasi status & penjelasan naratif logis",
             ],
         }
     )
     st.dataframe(df_metrik, use_container_width=True, hide_index=True)
 
     st.markdown("---")
-    st.subheader("Matriks Kesalahan (Confusion Matrix)")
-    col_cm1, col_cm2 = st.columns(2)
 
-    with col_cm1:
-        st.markdown("**Random Forest**")
-        df_cm_rf = pd.DataFrame(
-            m["confusion_matrix"],
-            index=["Aktual: Lulus", "Aktual: Remedial"],
-            columns=["Prediksi: Lulus", "Prediksi: Remedial"],
-        )
-        st.dataframe(df_cm_rf, use_container_width=True)
-
-    with col_cm2:
-        if "confusion_matrix" in lm:
-            st.markdown("**Groq LLM (Qwen 2.5 32B)**")
-            df_cm_llm = pd.DataFrame(
-                lm["confusion_matrix"],
-                index=["Aktual: Lulus", "Aktual: Remedial"],
-                columns=["Prediksi: Lulus", "Prediksi: Remedial"],
-            )
-            st.dataframe(df_cm_llm, use_container_width=True)
-
-    st.markdown("---")
-    st.subheader("Analisis Hasil Pengujian")
+    # 4. Ringkasan Kesimpulan Akademik
+    st.subheader("Analisis dan Rekomendasi")
     st.write(
-        f"1. **Tingkat Akurasi:** Model Library (Random Forest) memperoleh akurasi sebesar {m['accuracy']*100:.1f}%, "
-        f"sedangkan Groq LLM memperoleh {lm.get('accuracy', 0)*100:.1f}%. Selisih kedua model relatif tipis (sekitar 1.3%).\n"
-        "2. **Efisiensi Komputasi:** Random Forest memproses prediksi dalam hitungan milidetik secara lokal tanpa kuota API, "
-        "sementara LLM memerlukan jaringan internet untuk mengirim permintaan ke cloud.\n"
-        "3. **Interpretasi Output:** Random Forest menghasilkan probabilitas numerik, sedangkan LLM mampu "
-        "memberikan ringkasan alasan dalam kalimat bahasa Indonesia yang kontekstual."
+        f"1. **Kinerja Prediksi:** Model Library (Random Forest) memperoleh akurasi **{m['accuracy']*100:.2f}%** "
+        f"dan F1-Macro **{m['f1_macro']:.4f}**, sedikit melampaui Groq LLM (**{lm.get('accuracy', 0)*100:.2f}%** "
+        f"dan F1-Macro **{lm.get('f1_macro', 0):.4f}**). Hal ini wajar karena Random Forest dilatih secara langsung "
+        "pada distribusi angka data historis akademik siswa.\n"
+        "2. **Kemampuan Penalaran LLM:** Meskipun tidak melalui proses pelatihan data, Groq LLM (Qwen 2.5 32B) mampu "
+        "mencapai akurasi di atas 87% berkat kemampuan memahami konteks semantik nilai dan kehadiran siswa.\n"
+        "3. **Rekomendasi Penerapan:** Sistem terbaik adalah menggabungkan keduanya: Random Forest untuk klasifikasi "
+        "data skala besar yang cepat dan hemat biaya, serta LLM untuk menghasilkan saran tindak lanjut per individu siswa."
     )
