@@ -1,0 +1,68 @@
+{
+  "nama_model": "Random Forest Classifier (Scikit-Learn)",
+  "deskripsi": "Model klasifikasi untuk memprediksi kelulusan siswa berbasis data historis akademik.",
+  "fitur_numerik": [
+    "jam_belajar",
+    "jumlah_kegagalan",
+    "jumlah_absen",
+    "nilai_tugas",
+    "nilai_uts"
+  ],
+  "fitur_kategori": [
+    "keinginan_kuliah",
+    "akses_internet"
+  ],
+  "target": "status_kelulusan",
+  "kelas": [
+    "Lulus",
+    "Remedial"
+  ],
+  "rentang_fitur": {
+    "jam_belajar": [
+      1.0,
+      4.0
+    ],
+    "jumlah_kegagalan": [
+      0.0,
+      3.0
+    ],
+    "jumlah_absen": [
+      0.0,
+      75.0
+    ],
+    "nilai_tugas": [
+      3.0,
+      19.0
+    ],
+    "nilai_uts": [
+      0.0,
+      19.0
+    ]
+  },
+  "kategori_fitur": {
+    "keinginan_kuliah": [
+      "Ya",
+      "Tidak"
+    ],
+    "akses_internet": [
+      "Tidak",
+      "Ya"
+    ]
+  },
+  "metrik": {
+    "n_train": 316,
+    "n_test": 79,
+    "accuracy": 0.8860759493670886,
+    "f1_macro": 0.8722371967654987,
+    "confusion_matrix": [
+      [
+        48,
+        5
+      ],
+      [
+        4,
+        22
+      ]
+    ]
+  }
+}

@@ -1,0 +1,16 @@
+{
+  "model_llm": "qwen/qwen3.8-27b",
+  "n_test": 79,
+  "accuracy": 0.8734177215189873,
+  "f1_macro": 0.8637931034482759,
+  "confusion_matrix": [
+    [
+      45,
+      8
+    ],
+    [
+      2,
+      24
+    ]
+  ]
+}
