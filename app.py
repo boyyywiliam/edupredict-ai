@@ -1,6 +1,7 @@
 import json
 import os
 import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
 import streamlit as st
 from dotenv import load_dotenv
@@ -214,11 +215,29 @@ with tab_pred:
 
                     st.metric("Tingkat Keyakinan Model", f"{conf:.1f}%")
 
-                    df_chart = pd.DataFrame(
-                        {"Probabilitas (%)": [p_lulus * 100, p_remed * 100]},
-                        index=["Lulus", "Remedial"],
-                    )
-                    st.bar_chart(df_chart, height=180)
+                    # Grafik probabilitas horizontal yang bersih dan terstandar
+                    fig_prob, ax_prob = plt.subplots(figsize=(4, 1.4), dpi=150)
+                    labels = ["Lulus", "Remedial"]
+                    vals = [p_lulus * 100, p_remed * 100]
+                    colors = ["#2e7d32", "#c62828"]
+                    bars = ax_prob.barh(labels, vals, color=colors, height=0.42)
+                    ax_prob.spines["top"].set_visible(False)
+                    ax_prob.spines["right"].set_visible(False)
+                    ax_prob.spines["bottom"].set_visible(False)
+                    ax_prob.spines["left"].set_visible(False)
+                    ax_prob.xaxis.set_visible(False)
+                    ax_prob.tick_params(length=0, labelsize=9)
+                    for bar in bars:
+                        w = bar.get_width()
+                        ax_prob.text(
+                            w + 2, bar.get_y() + bar.get_height() / 2,
+                            f"{w:.1f}%", va="center", ha="left",
+                            fontsize=9, fontweight="bold", color="#222"
+                        )
+                    ax_prob.set_xlim(0, 118)
+                    plt.tight_layout()
+                    st.pyplot(fig_prob)
+                    plt.close(fig_prob)
 
         # 2. Output AI Model Service
         if mode_model in ["Groq LLM (Model Service)", "Bandingkan Keduanya"]:
@@ -296,14 +315,43 @@ with tab_batch:
                 st.success(f"Selesai! Berhasil memprediksi {len(df_csv)} data siswa.")
                 st.dataframe(df_csv, use_container_width=True, hide_index=True)
 
-                col_stat1, col_stat2 = st.columns(2)
+                col_stat1, col_stat2 = st.columns([1, 1.3])
                 with col_stat1:
                     rekap = df_csv["Prediksi"].value_counts()
-                    st.markdown("**Distribusi Hasil:**")
+                    st.markdown("**Distribusi Hasil Prediksi:**")
+                    total_siswa = len(df_csv)
                     for k, v in rekap.items():
-                        st.write(f"- {k}: **{v}** siswa")
+                        pct = (v / total_siswa) * 100
+                        st.write(f"- **{k}**: {v} siswa ({pct:.1f}%)")
                 with col_stat2:
-                    st.bar_chart(rekap)
+                    fig_batch, ax_batch = plt.subplots(figsize=(4, 2.2), dpi=150)
+                    cats = list(rekap.index)
+                    counts = list(rekap.values)
+                    bar_colors = ["#2e7d32" if c == "Lulus" else "#c62828" for c in cats]
+
+                    bars = ax_batch.bar(cats, counts, color=bar_colors, width=0.42)
+                    ax_batch.spines["top"].set_visible(False)
+                    ax_batch.spines["right"].set_visible(False)
+                    ax_batch.spines["left"].set_visible(False)
+                    ax_batch.yaxis.grid(True, linestyle="--", alpha=0.35, color="#ccc")
+                    ax_batch.set_axisbelow(True)
+                    ax_batch.set_ylabel("Jumlah Siswa", fontsize=8)
+                    ax_batch.tick_params(axis="both", which="both", length=0, labelsize=9)
+
+                    for bar in bars:
+                        yval = bar.get_height()
+                        pct = (yval / total_siswa) * 100
+                        ax_batch.text(
+                            bar.get_x() + bar.get_width() / 2,
+                            yval + 0.3,
+                            f"{int(yval)} siswa\n({pct:.0f}%)",
+                            ha="center", va="bottom",
+                            fontsize=8.5, fontweight="bold", color="#222"
+                        )
+                    ax_batch.set_ylim(0, max(counts) * 1.35 if counts else 1)
+                    plt.tight_layout()
+                    st.pyplot(fig_batch)
+                    plt.close(fig_batch)
 
                 st.download_button(
                     "Unduh Hasil Prediksi (CSV)",
