@@ -246,74 +246,60 @@ with tab_pred:
 with tab_batch:
     st.subheader("Pengujian Massal Melalui Berkas CSV")
     st.write(
-        "Fitur ini memungkinkan pengujian data siswa dalam jumlah banyak sekaligus. "
-        "Anda dapat mengunggah berkas CSV sendiri atau menggunakan data sampel yang telah disediakan."
+        "Fitur ini digunakan untuk menguji prediksi pada banyak data siswa sekaligus. "
+        "Silakan unduh berkas sampel data di bawah ini untuk melihat format dan mengujinya langsung."
     )
 
     sample_file = os.path.join(os.path.dirname(__file__), "sample_data.csv")
     if not os.path.exists(sample_file):
         sample_file = "sample_data.csv"
 
-    # Baris tombol unduh & tombol cepat
-    col_btn1, col_btn2 = st.columns([1, 1])
-
-    with col_btn1:
-        if os.path.exists(sample_file):
-            with open(sample_file, "rb") as f:
-                st.download_button(
-                    "📥 Unduh Berkas Sampel (sample_data.csv)",
-                    data=f.read(),
-                    file_name="sample_data.csv",
-                    mime="text/csv",
-                    help="Unduh file 10 data siswa untuk diuji.",
-                    use_container_width=True,
-                )
-
-    with col_btn2:
-        pakai_sampel_langsung = st.button("⚡ Gunakan Data Sampel Langsung (10 Siswa)", use_container_width=True)
+    if os.path.exists(sample_file):
+        with open(sample_file, "rb") as f:
+            st.download_button(
+                "📥 Unduh Berkas Sampel Pengujian (sample_data.csv)",
+                data=f.read(),
+                file_name="sample_data.csv",
+                mime="text/csv",
+                help="Berkas berisi 20 sampel data siswa dengan profil akademik yang beragam.",
+            )
 
     st.markdown("---")
-    file_terunggah = st.file_uploader("Atau Unggah Berkas CSV Anda:", type=["csv"])
+    file_terunggah = st.file_uploader("Unggah Berkas CSV:", type=["csv"])
 
     cols_req = [
         "jam_belajar", "jumlah_kegagalan", "jumlah_absen",
         "nilai_tugas", "nilai_uts", "keinginan_kuliah", "akses_internet"
     ]
 
-    df_csv = None
     if file_terunggah:
         df_csv = pd.read_csv(file_terunggah)
-    elif pakai_sampel_langsung and os.path.exists(sample_file):
-        df_csv = pd.read_csv(sample_file)
-        st.info("Memuat 10 data sampel bawaan sistem:")
-
-    if df_csv is not None:
         missing_cols = [c for c in cols_req if c not in df_csv.columns]
 
         if missing_cols:
             st.error(
-                f"Kolom tidak cocok. Pastikan menggunakan dataset dengan kolom berikut: {', '.join(cols_req)}.\n\n"
-                "💡 Tip: Gunakan tombol 'Unduh Berkas Sampel' di atas sebagai acuan format."
+                f"Format kolom berkas tidak sesuai. Kolom yang dibutuhkan: {', '.join(cols_req)}.\n\n"
+                "Silakan gunakan berkas yang diunduh dari tombol 'Unduh Berkas Sampel Pengujian' di atas."
             )
         else:
             st.markdown(f"**Pratinjau Data ({len(df_csv)} siswa):**")
-            st.dataframe(df_csv, use_container_width=True, hide_index=True)
+            st.dataframe(df_csv.head(10), use_container_width=True, hide_index=True)
 
             if st.button("Jalankan Prediksi Seluruh Baris", type="primary"):
-                with st.spinner("Menghitung prediksi seluruh baris..."):
+                with st.spinner("Memproses prediksi..."):
                     df_csv["Prediksi"] = pipeline.predict(df_csv[cols_req])
                     probs = pipeline.predict_proba(df_csv[cols_req])
                     cls_list = list(pipeline.classes_)
                     idx_l = cls_list.index("Lulus")
                     df_csv["Probabilitas Lulus (%)"] = (probs[:, idx_l] * 100).round(1)
 
-                st.success(f"Selesai! Sebanyak {len(df_csv)} data siswa berhasil diprediksi.")
+                st.success(f"Selesai! Berhasil memprediksi {len(df_csv)} data siswa.")
                 st.dataframe(df_csv, use_container_width=True, hide_index=True)
 
                 col_stat1, col_stat2 = st.columns(2)
                 with col_stat1:
                     rekap = df_csv["Prediksi"].value_counts()
-                    st.markdown("**Ringkasan Jumlah Siswa:**")
+                    st.markdown("**Distribusi Hasil:**")
                     for k, v in rekap.items():
                         st.write(f"- {k}: **{v}** siswa")
                 with col_stat2:
@@ -322,7 +308,7 @@ with tab_batch:
                 st.download_button(
                     "Unduh Hasil Prediksi (CSV)",
                     data=df_csv.to_csv(index=False).encode("utf-8"),
-                    file_name="hasil_prediksi_batch.csv",
+                    file_name="hasil_prediksi_siswa.csv",
                     mime="text/csv",
                 )
 
